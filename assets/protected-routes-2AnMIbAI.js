@@ -1,1 +1,0 @@
-import{u,c as d,j as n,N as o}from"./index-CKP0h3AC.js";const f=({children:a})=>{var e;const{isSignedIn:s,user:t,isLoaded:r}=u(),{pathname:i}=d();return r?s?!((e=t==null?void 0:t.unsafeMetadata)!=null&&e.role)&&i!=="/onboarding"?n.jsx(o,{to:"/onboarding"}):a:n.jsx(o,{to:"/?sign-in=true"}):null};export{f as default};
