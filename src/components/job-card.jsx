@@ -107,7 +107,7 @@ const JobCard = ({
 
             {/* FOOTER */}
             <CardFooter className="flex gap-2 px-4 py-4 mt-auto">
-                <Link to={`/job/${job.id}`} className="flex-1">
+                <Link to={`/TalentBliss/job/${job.id}`} className="flex-1">
                     <Button variant="secondary" className="w-full">
                         More Details
                     </Button>
