@@ -53,12 +53,12 @@ const Landing = () => {
 
                 {/* Action Buttons */}
                 <div className="flex gap-6 justify-center -mt-4">
-                    <Link to="/jobs">
+                    <Link to="/TalentBliss/jobs">
                         <Button variant="blue" size="lg" className="w-48">
                             Browse Jobs
                         </Button>
                     </Link>
-                    <Link to="/post-job">
+                    <Link to="/TalentBliss/post-job">
                         <Button variant="destructive" size="lg" className="w-48">
                             Create a Job Listing
                         </Button>

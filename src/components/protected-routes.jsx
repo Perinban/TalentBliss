@@ -16,8 +16,8 @@ const ProtectedRoute = ({ children }) => {
     }
 
     // Redirect to onboarding if the user has no role and is not on the onboarding page
-    if (!user?.unsafeMetadata?.role && pathname !== '/onboarding') {
-        return <Navigate to="/onboarding" />;
+    if (!user?.unsafeMetadata?.role && pathname !== '/TalentBliss/onboarding') {
+        return <Navigate to="/TalentBliss/onboarding" />;
     }
 
     // If all checks pass, render the protected content
