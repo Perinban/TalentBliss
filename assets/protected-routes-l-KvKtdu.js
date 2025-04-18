@@ -1,1 +1,0 @@
-import{u,c as d,j as n,N as s}from"./index-BkENL3OJ.js";const c=({children:a})=>{var e;const{isSignedIn:o,user:t,isLoaded:r}=u(),{pathname:i}=d();return r?o?!((e=t==null?void 0:t.unsafeMetadata)!=null&&e.role)&&i!=="/TalentBliss/onboarding"?n.jsx(s,{to:"/TalentBliss/onboarding"}):a:n.jsx(s,{to:"/?sign-in=true"}):null};export{c as default};
