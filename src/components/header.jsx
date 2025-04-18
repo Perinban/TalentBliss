@@ -28,7 +28,7 @@ const Header = () => {
 
     return <>
         <nav className="py-4 flex justify-between items-center">
-            <Link>
+            <Link to="/TalentBliss">
                 <img src="logo.png" className="h-20"/>
             </Link>
 
