@@ -126,11 +126,11 @@ const PostJob = () => {
     };
 
     useEffect(() => {
-        if (dataCreateJob?.length > 0) navigate("/TalentBliss/jobs");
+        if (dataCreateJob?.length > 0) navigate("/TalentBliss/jobs/");
     }, [dataCreateJob]);
 
     if (!isLoaded) return <BarLoader className="mb-4" width={"100%"} color="#36d7b7" />;
-    if (user?.unsafeMetadata?.role !== "recruiter") return <Navigate to="/TalentBliss/jobs" />;
+    if (user?.unsafeMetadata?.role !== "recruiter") return <Navigate to="/TalentBliss/jobs/" />;
 
     return (
         <div className="max-w-4xl mx-auto p-8 bg-white shadow-lg rounded-xl">

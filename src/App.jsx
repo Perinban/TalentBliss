@@ -29,7 +29,7 @@ const router = createBrowserRouter([
         ),
         children: [
             {
-                path: '/TalentBliss',
+                path: '/TalentBliss/',
                 element: (
                     <Suspense fallback={null}>
                         <Landing />
@@ -37,7 +37,7 @@ const router = createBrowserRouter([
                 )
             },
             {
-                path: '/TalentBliss/onboarding',
+                path: '/TalentBliss/onboarding/',
                 element: (
                     <Suspense fallback={null}>
                         <ProtectedRoute>
@@ -47,7 +47,7 @@ const router = createBrowserRouter([
                 )
             },
             {
-                path: '/TalentBliss/jobs',
+                path: '/TalentBliss/jobs/',
                 element: (
                     <Suspense fallback={null}>
                         <ProtectedRoute>
@@ -57,7 +57,7 @@ const router = createBrowserRouter([
                 )
             },
             {
-                path: '/TalentBliss/job/:id',
+                path: '/TalentBliss/job/:id/',
                 element: (
                     <Suspense fallback={null}>
                         <ProtectedRoute>
@@ -67,7 +67,7 @@ const router = createBrowserRouter([
                 )
             },
             {
-                path: '/TalentBliss/post-job',
+                path: '/TalentBliss/post-job/',
                 element: (
                     <Suspense fallback={null}>
                         <ProtectedRoute>
@@ -77,7 +77,7 @@ const router = createBrowserRouter([
                 )
             },
             {
-                path: '/TalentBliss/saved-jobs',
+                path: '/TalentBliss/saved-jobs/',
                 element: (
                     <Suspense fallback={null}>
                         <ProtectedRoute>
@@ -87,7 +87,7 @@ const router = createBrowserRouter([
                 )
             },
             {
-                path: '/TalentBliss/my-jobs',
+                path: '/TalentBliss/my-jobs/',
                 element: (
                     <Suspense fallback={null}>
                         <ProtectedRoute>

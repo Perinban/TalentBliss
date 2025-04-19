@@ -15,7 +15,7 @@ const Onboarding = () => {
         // If the user data is loaded and they have a role, navigate accordingly
         if (isLoaded) {
             if (user?.unsafeMetadata?.role) {
-                navigate(user.unsafeMetadata.role === 'recruiter' ? "/TalentBliss/post-job" : "/TalentBliss/jobs");
+                navigate(user.unsafeMetadata.role === 'recruiter' ? "/TalentBliss/post-job/" : "/TalentBliss/jobs/");
             }
         }
     }, [user, isLoaded, navigate]);
@@ -31,7 +31,7 @@ const Onboarding = () => {
             await user.update({
                 unsafeMetadata: { role },
             });
-            navigate(role === 'recruiter' ? "/TalentBliss/post-job" : "/TalentBliss/jobs");
+            navigate(role === 'recruiter' ? "/TalentBliss/post-job/" : "/TalentBliss/jobs/");
         } catch (err) {
             console.error("Error updating role:", err);
         }

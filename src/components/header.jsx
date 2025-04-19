@@ -38,7 +38,7 @@ const Header = () => {
                 </SignedOut>
                 <SignedIn>
                     { user?.unsafeMetadata?.role === "recruiter" && (
-                        <Link to="/TalentBliss/post-job">
+                        <Link to="/TalentBliss/post-job/">
                             <Button variant="destructive" className="rounded-full">
                                 <PenBox size={20} className="mr-2"/>
                                 Post a Job
@@ -54,12 +54,12 @@ const Header = () => {
                             <UserButton.Link
                                 label="My Jobs"
                                 labelIcon={<BriefcaseBusiness size={15} />}
-                                href="/TalentBliss/my-jobs"
+                                href="/TalentBliss/my-jobs/"
                             />
                             <UserButton.Link
                                 label="Saved Jobs"
                                 labelIcon={<Heart size={15} />}
-                                href="/TalentBliss/saved-jobs"
+                                href="/TalentBliss/saved-jobs/"
                             />
                         </UserButton.MenuItems>
                     </UserButton>
@@ -73,8 +73,8 @@ const Header = () => {
                  onClick={handleOverlayClick}
             >
                 <SignIn
-                    signUpForceRedirectUrl="/TalentBliss/onboarding"
-                    fallbackRedirectUrl="/TalentBliss/onboarding"
+                    signUpForceRedirectUrl="/TalentBliss/onboarding/"
+                    fallbackRedirectUrl="/TalentBliss/onboarding/"
                 />
             </div>
         )}
