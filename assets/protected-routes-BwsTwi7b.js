@@ -1,1 +1,0 @@
-import{u,c,j as a,N as n}from"./index-BH7TpHPJ.js";const f=({children:o})=>{var r;const{isSignedIn:s,user:e,isLoaded:i}=u(),{pathname:t}=c();return i?s?!((r=e==null?void 0:e.unsafeMetadata)!=null&&r.role)&&!t.includes("/onboarding")?a.jsx(n,{to:"/onboarding",replace:!0}):o:a.jsx(n,{to:"/?sign-in=true",replace:!0,state:{from:t}}):null};export{f as default};
