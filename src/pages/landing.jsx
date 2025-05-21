@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button.jsx";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
@@ -11,31 +11,45 @@ import { useUser } from "@clerk/clerk-react";
 
 const Landing = () => {
     const { user, isSignedIn } = useUser();
-    const { companies, loading, error } = isSignedIn ? useCompanies() : { companies: [], loading: false, error: null };
+    const companiesHook = useCompanies();
+    const companies = isSignedIn ? companiesHook.companies : [];
+    const loading = isSignedIn ? companiesHook.loading : false;
+    const error = isSignedIn ? companiesHook.error : null;
     const [companiesWithLogos, setCompaniesWithLogos] = useSessionStorage("companiesWithLogos", []);
 
+    // Memoize filtered companies with logos (max 30)
+    const filteredCompanies = useMemo(() => {
+        if (!Array.isArray(companies)) return [];
+        return companies.filter(({ logo_url }) => Boolean(logo_url)).slice(0, 30);
+    }, [companies]);
+
+    // Update session storage only if filteredCompanies changed
     useEffect(() => {
-
-        if (!user || !Array.isArray(companies) || companies.length === 0) return;
-
-        const filtered = companies
-            .filter(({ logo_url }) => Boolean(logo_url))
-            .slice(0, 30);
+        if (!user || filteredCompanies.length === 0) return;
 
         setCompaniesWithLogos(prev => {
-            const prevIds = new Set(prev.map(c => c.id));
-            const newIds = new Set(filtered.map(c => c.id));
-            const same = [...prevIds].every(id => newIds.has(id)) && prev.length === filtered.length;
-            return same ? prev : filtered;
+            if (
+                prev.length === filteredCompanies.length &&
+                prev.every((c, i) => c.id === filteredCompanies[i].id)
+            ) {
+                return prev;
+            }
+            return filteredCompanies;
         });
-    }, [user, companies, setCompaniesWithLogos]);
+    }, [user, filteredCompanies, setCompaniesWithLogos]);
 
-    const uniqueCompanies = Array.from(new Set(companiesWithLogos.map(c => c.id)))
-        .map(id => companiesWithLogos.find(c => c.id === id));
+    // Unique companies by id memoized
+    const uniqueCompanies = useMemo(() => {
+        const uniqueIds = new Set();
+        return companiesWithLogos.filter(c => {
+            if (uniqueIds.has(c.id)) return false;
+            uniqueIds.add(c.id);
+            return true;
+        });
+    }, [companiesWithLogos]);
 
-    if (error) {
-        return <div>{error}</div>;
-    }
+    if (loading) return <BarLoader className="mb-4" width={"100%"} color="#36d7b7" />;
+    if (error) return <div>{error}</div>;
 
     return (
         <main className="flex flex-col gap-8 sm:gap-12 py-6 sm:py-10">
@@ -43,7 +57,9 @@ const Landing = () => {
             <section className="text-center px-4">
                 <h1 className="flex flex-col items-center justify-center gradient-title text-2xl font-extrabold sm:text-4xl lg:text-5xl tracking-tighter">
                     Find the Perfect Career.
-                    <span className="flex items-center gap-2 sm:gap-4">Connect with Exceptional Talent.</span>
+                    <span className="flex items-center gap-2 sm:gap-4">
+              Connect with Exceptional Talent.
+            </span>
                 </h1>
                 <p className="text-gray-300 mt-4 text-xs sm:text-sm py-5">
                     Unlock Career Growth or Find the Talent to Drive Your Success.
@@ -73,6 +89,7 @@ const Landing = () => {
                                 <img
                                     src={logo_url}
                                     alt={name}
+                                    loading="lazy"
                                     className="h-16 sm:h-20 lg:h-24 object-contain mx-auto"
                                 />
                             </CarouselItem>

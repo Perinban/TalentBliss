@@ -47,7 +47,18 @@ const Pagination = ({ currentPage, totalPages, setCurrentPage, loading }) => (
     )
 );
 
-const Filters = ({ country, setCountry, state, setState, company_id, setCompanyId, countryOptions, stateOptions, companyOptions, loadMoreOptions }) => {
+const Filters = ({
+                     country,
+                     setCountry,
+                     state,
+                     setState,
+                     company_id,
+                     setCompanyId,
+                     countryOptions,
+                     stateOptions,
+                     companyOptions,
+                     loadMoreOptions
+                 }) => {
     const observerRef = useRef(null);
 
     useEffect(() => {
@@ -89,12 +100,14 @@ const Filters = ({ country, setCountry, state, setState, company_id, setCompanyI
                 isClearable
                 className="w-full"
             />
+            {/* Sentinel div for lazy loading more options */}
             <div ref={observerRef} style={{ height: '1px' }} />
         </div>
     );
 };
 
 const JobListing = () => {
+    // Filters & pagination states with session storage persistence
     const [searchQuery, setSearchQuery] = useSessionStorage("jobSearchQuery", "");
     const [descriptionQuery, setDescriptionQuery] = useSessionStorage("jobDescriptionQuery", "");
     const [country, setCountry] = useSessionStorage("selectedCountry", "");
@@ -102,6 +115,7 @@ const JobListing = () => {
     const [company_id, setCompanyId] = useSessionStorage("selectedCompanyId", "");
     const [currentPage, setCurrentPage] = useSessionStorage("currentJobPage", 1);
 
+    // Options and offsets for lazy loading filter options
     const [countryOptions, setCountryOptions] = useState([]);
     const [stateOptions, setStateOptions] = useState([]);
     const [companyOptions, setCompanyOptions] = useState([]);
@@ -130,20 +144,42 @@ const JobListing = () => {
 
     const { companies, loading: loadingCompanies } = useCompanies();
 
+    // Fetch jobs when user is loaded, companies loaded, and filters change
     useEffect(() => {
-        if (isLoaded) fetchJobs();
-    }, [isLoaded, country, state, company_id, searchQuery, debouncedDescription, currentPage]);
+        if (!isLoaded || loadingCompanies) return;
+        if (!companies?.length) return;
 
+        fetchJobs();
+    }, [
+        isLoaded,
+        loadingCompanies,
+        companies.length,
+        country,
+        state,
+        company_id,
+        searchQuery,
+        debouncedDescription,
+        currentPage
+    ]);
+
+    // Reset state filter and related options when country changes
     useEffect(() => {
         setState("");
         setStateOffset(0);
         setStateOptions([]);
     }, [country]);
 
+    // Reset page to 1 when filters or search change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [country, state, company_id, searchQuery, debouncedDescription]);
+
+    // Lazy load filter options on scroll
     const loadMoreOptions = useCallback(() => {
         const allCountries = Country.getAllCountries();
         if (countryOffset < allCountries.length) {
-            const newCountries = allCountries.slice(countryOffset, countryOffset + optionsPerLoad)
+            const newCountries = allCountries
+                .slice(countryOffset, countryOffset + optionsPerLoad)
                 .map(({ name, isoCode }) => ({ label: name, value: isoCode }));
             setCountryOptions(prev => [...prev, ...newCountries]);
             setCountryOffset(prev => prev + optionsPerLoad);
@@ -152,7 +188,8 @@ const JobListing = () => {
         if (country) {
             const allStates = State.getStatesOfCountry(country);
             if (stateOffset < allStates.length) {
-                const newStates = allStates.slice(stateOffset, stateOffset + optionsPerLoad)
+                const newStates = allStates
+                    .slice(stateOffset, stateOffset + optionsPerLoad)
                     .map(({ name, isoCode }) => ({ label: name, value: isoCode }));
                 setStateOptions(prev => [...prev, ...newStates]);
                 setStateOffset(prev => prev + optionsPerLoad);
@@ -160,22 +197,26 @@ const JobListing = () => {
         }
 
         if (Array.isArray(companies) && companyOffset < companies.length) {
-            const newCompanies = companies.slice(companyOffset, companyOffset + optionsPerLoad)
+            const newCompanies = companies
+                .slice(companyOffset, companyOffset + optionsPerLoad)
                 .map(({ name, id }) => ({ label: name, value: id }));
             setCompanyOptions(prev => [...prev, ...newCompanies]);
             setCompanyOffset(prev => prev + optionsPerLoad);
         }
     }, [country, stateOffset, countryOffset, companyOffset, companies]);
 
+    // Initial load of filter options
     useEffect(() => {
         loadMoreOptions();
     }, [loadMoreOptions]);
 
+    // Extract jobs array safely
     const currentJobs = useMemo(() => {
         if (Array.isArray(jobsResponse)) return jobsResponse;
         return jobsResponse?.jobs || [];
     }, [jobsResponse]);
 
+    // Compute total pages
     const totalJobsCount = totalItems ?? currentJobs.length;
     const totalPages = Math.max(1, Math.ceil(totalJobsCount / jobsPerPage));
 
@@ -189,7 +230,7 @@ const JobListing = () => {
                 Latest Jobs
             </h1>
 
-            <form className="h-14 flex flex-col sm:flex-row w-full gap-2 items-center mb-4">
+            <form className="h-14 flex flex-col sm:flex-row w-full gap-2 items-center mb-4" onSubmit={e => e.preventDefault()}>
                 <Input
                     type="text"
                     placeholder="Search Jobs by Title..."

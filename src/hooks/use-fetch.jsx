@@ -29,19 +29,14 @@ const useFetch = (cb, options = {}) => {
                 throw new Error("No response received");
             }
 
-            if (typeof response === "object") {
-                if ("jobs" in response) {
-                    setData(response.jobs);
-                    setTotalItems(response.total || null);
-                } else if ("data" in response) {
-                    setData(response.data);
-                    setTotalItems(response.total || null);
-                } else {
-                    setData(response);
-                }
+            setData(response);
+
+            if (typeof response === "object" && "total" in response) {
+                setTotalItems(response.total);
             } else {
-                setData(response);
+                setTotalItems(null);
             }
+
         } catch (error) {
             console.error("Fetch error:", error);
             setError(error.message || "Failed to fetch data");
@@ -50,12 +45,6 @@ const useFetch = (cb, options = {}) => {
             setLoading(false);
         }
     };
-
-    useEffect(() => {
-        if (!isLoaded || !session) {
-            return;
-        }
-    }, [isLoaded, session]);
 
     return { fn, data, loading, error, totalItems };
 };
