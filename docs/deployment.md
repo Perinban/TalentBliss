@@ -45,12 +45,11 @@ Do not copy the sample password or import token into production.
 
 ## systemd
 
-Enable and start the backup timer after the first release:
+Enable and start the application service after the first release:
 
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now talentbliss-api.service
-sudo systemctl enable --now talentbliss-backup.timer
 ```
 
 Useful checks:
@@ -59,7 +58,6 @@ Useful checks:
 systemctl status talentbliss-api.service
 journalctl -u talentbliss-api.service -n 100 --no-pager
 curl --fail http://127.0.0.1:3000/api/health
-systemctl list-timers talentbliss-backup.timer
 ```
 
 ## Cloudflare
