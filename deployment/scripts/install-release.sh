@@ -13,6 +13,8 @@ release_dir="$root/releases/$release_id"
 current_link="$root/current"
 environment_file="${TALENTBLISS_ENV_FILE:-/etc/talentbliss/api.env}"
 node_root="${TALENTBLISS_NODE_ROOT:-/opt/nodejs22}"
+service_name="${TALENTBLISS_SERVICE_NAME:-talentbliss-api.service}"
+health_url="${TALENTBLISS_HEALTH_URL:-http://127.0.0.1:3000/api/health}"
 node_bin="$node_root/bin/node"
 npm_bin="$node_root/bin/npm"
 previous_target=""
@@ -47,15 +49,15 @@ sudo -u talentbliss env \
   DATABASE_URL="$DATABASE_URL" \
   "$node_bin" "$release_dir/apps/api/src/db/migrate.js"
 ln -sfn "$release_dir" "$current_link"
-systemctl restart talentbliss-api.service
+systemctl restart "$service_name"
 
-if ! curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-connrefused http://127.0.0.1:3000/api/health; then
+if ! curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-connrefused "$health_url"; then
   echo "Health check failed; rolling back." >&2
   if [[ -n "$previous_target" ]]; then
     ln -sfn "$previous_target" "$current_link"
-    systemctl restart talentbliss-api.service
+    systemctl restart "$service_name"
   else
-    systemctl stop talentbliss-api.service || true
+    systemctl stop "$service_name" || true
     rm -f "$current_link"
   fi
   exit 1
