@@ -1,0 +1,26 @@
+[Unit]
+Description=TalentBliss web and API service
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=talentbliss
+Group=talentbliss
+WorkingDirectory=/opt/talentbliss/current
+EnvironmentFile=/etc/talentbliss/api.env
+ExecStart=/opt/nodejs22/bin/node apps/api/src/server.js
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/talentbliss/uploads
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

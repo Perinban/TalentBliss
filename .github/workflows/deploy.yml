@@ -1,53 +1,134 @@
-name: Deploy
+name: Production release
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: talentbliss-production-deploy
+  cancel-in-progress: false
 
 jobs:
-  build:
-    name: Build
+  package:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+    outputs:
+      release_id: ${{ steps.release.outputs.release_id }}
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - name: Resolve release revision
+        id: release
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            echo "release_id=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_id=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Setup Node
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release.outputs.release_id }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pipeline/pyproject.toml
 
       - name: Install dependencies
-        uses: bahmutov/npm-install@v1
+        run: |
+          npm ci
+          python -m pip install -e pipeline
 
-      - name: Build project
-        run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+      - name: Verify release
+        run: |
+          npm run lint
+          npm run test:api
+          python -m unittest discover -s pipeline/tests -v
+          npm run build
 
-      - name: Upload production-ready build files
-        uses: actions/upload-artifact@v4
+      - name: Create release archive
+        shell: bash
+        run: |
+          tar -czf "talentbliss-${{ steps.release.outputs.release_id }}.tar.gz" \
+            LICENSE \
+            package.json \
+            package-lock.json \
+            apps/api \
+            apps/web/package.json \
+            apps/web/dist \
+            database \
+            deployment
+
+      - uses: actions/upload-artifact@v4
         with:
-          name: production-files
-          path: ./dist
+          name: talentbliss-release-${{ steps.release.outputs.release_id }}
+          path: talentbliss-${{ steps.release.outputs.release_id }}.tar.gz
+          if-no-files-found: error
+          retention-days: 14
 
   deploy:
-    name: Deploy
-    needs: build
+    needs: package
+    if: ${{ vars.ENABLE_ORACLE_DEPLOY == 'true' }}
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-
+    environment: production
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: production-files
-          path: ./dist
+          name: talentbliss-release-${{ needs.package.outputs.release_id }}
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+      - name: Configure SSH
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 0700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 0600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+
+      - name: Upload and activate release
+        shell: bash
+        env:
+          ORACLE_HOST: ${{ vars.ORACLE_HOST }}
+          ORACLE_USER: ${{ vars.ORACLE_USER }}
+          RELEASE_ID: ${{ needs.package.outputs.release_id }}
+        run: |
+          archive="talentbliss-${RELEASE_ID}.tar.gz"
+          remote_archive="/tmp/${archive}"
+          remote_installer="/tmp/talentbliss-install-release.sh"
+          tar -xzf "$archive" deployment/scripts/install-release.sh
+          scp -i ~/.ssh/id_ed25519 "$archive" "${ORACLE_USER}@${ORACLE_HOST}:${remote_archive}"
+          scp -i ~/.ssh/id_ed25519 deployment/scripts/install-release.sh \
+            "${ORACLE_USER}@${ORACLE_HOST}:${remote_installer}"
+          ssh -i ~/.ssh/id_ed25519 "${ORACLE_USER}@${ORACLE_HOST}" \
+            "sudo bash '${remote_installer}' '${remote_archive}' '${RELEASE_ID}'"
