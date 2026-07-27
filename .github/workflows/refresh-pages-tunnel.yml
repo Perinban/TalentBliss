@@ -1,0 +1,142 @@
+name: Refresh Pages tunnel
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-pages-tunnel
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: pages
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 0700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 0600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+
+      - name: Discover tunnel
+        id: tunnel
+        shell: bash
+        env:
+          ORACLE_HOST: ${{ vars.ORACLE_HOST }}
+          ORACLE_USER: ${{ vars.ORACLE_USER }}
+        run: |
+          tunnel_url="$(
+            ssh -o BatchMode=yes "$ORACLE_USER@$ORACLE_HOST" \
+              "sudo journalctl -u talentbliss-staging-tunnel.service --no-pager | grep -Eo 'https://[a-z0-9-]+\\.trycloudflare\\.com' | tail -n 1"
+          )"
+          if [[ ! "$tunnel_url" =~ ^https://[a-z0-9-]+\.trycloudflare\.com$ ]]; then
+            exit 1
+          fi
+          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-connrefused \
+            "$tunnel_url/api/health"
+          printf 'url=%s\n' "$tunnel_url" >> "$GITHUB_OUTPUT"
+
+      - name: Sync staging origin
+        shell: bash
+        env:
+          ORACLE_HOST: ${{ vars.ORACLE_HOST }}
+          ORACLE_USER: ${{ vars.ORACLE_USER }}
+          TUNNEL_URL: ${{ steps.tunnel.outputs.url }}
+        run: |
+          result="$(
+            ssh -o BatchMode=yes "$ORACLE_USER@$ORACLE_HOST" \
+              "sudo python3 - '$TUNNEL_URL'" <<'PY'
+          from pathlib import Path
+          import sys
+
+          path = Path("/etc/talentbliss-staging/api.env")
+          public_url = sys.argv[1]
+          original = path.read_text(encoding="utf-8")
+          lines = original.splitlines()
+          output = []
+          found_origin = False
+          found_proxy = False
+
+          for line in lines:
+              if line.startswith("WEB_ORIGIN="):
+                  origins = [item.strip() for item in line.split("=", 1)[1].split(",") if item.strip()]
+                  origins = [item for item in origins if not item.endswith(".trycloudflare.com")]
+                  origins.append(public_url)
+                  output.append("WEB_ORIGIN=" + ",".join(dict.fromkeys(origins)))
+                  found_origin = True
+              elif line.startswith("TRUST_PROXY="):
+                  output.append("TRUST_PROXY=true")
+                  found_proxy = True
+              else:
+                  output.append(line)
+
+          if not found_origin:
+              output.append("WEB_ORIGIN=" + public_url)
+          if not found_proxy:
+              output.append("TRUST_PROXY=true")
+
+          updated = "\n".join(output) + "\n"
+          if updated == original:
+              print("unchanged")
+          else:
+              path.write_text(updated, encoding="utf-8")
+              print("changed")
+          PY
+          )"
+          if [[ "$result" == "changed" ]]; then
+            ssh -o BatchMode=yes "$ORACLE_USER@$ORACLE_HOST" \
+              "sudo systemctl restart talentbliss-staging.service"
+            curl --fail --silent --show-error --retry 15 --retry-delay 2 --retry-connrefused \
+              "$TUNNEL_URL/api/health"
+          elif [[ "$result" != "unchanged" ]]; then
+            exit 1
+          fi
+
+      - name: Update Pages redirect
+        shell: bash
+        env:
+          TUNNEL_URL: ${{ steps.tunnel.outputs.url }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          tunnel_url = os.environ["TUNNEL_URL"]
+          pattern = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
+
+          for filename in ("index.html", "404.html"):
+              path = Path("pages") / filename
+              original = path.read_text(encoding="utf-8")
+              updated, count = pattern.subn(tunnel_url, original)
+              if count == 0:
+                  raise SystemExit(f"No tunnel URL found in {filename}")
+              path.write_text(updated, encoding="utf-8")
+          PY
+
+      - name: Publish Pages redirect
+        shell: bash
+        run: |
+          cd pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html 404.html
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Refresh TalentBliss tunnel redirect"
+          git push origin HEAD:gh-pages
