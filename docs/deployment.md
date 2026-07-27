@@ -97,7 +97,7 @@ PIPELINE_IMPORT_TOKEN
 
 ## Pipeline publishing behavior
 
-The established pipeline is maintained in three repositories: `Perinban/join_companies`, `Perinban/WebScrapJobs`, and `Perinban/job-data-processing`. The scraper archives the combined feed in Google Drive. The data-processing repository downloads that feed, filters invalid records, deduplicates source URLs, enforces a minimum-job safety threshold, and sends bounded gzip batches to TalentBliss. Oracle records each completed batch, and missing jobs are closed only after an explicit finalize request confirms that every expected batch arrived.
+The established pipeline is maintained in three repositories: `Perinban/join_companies`, `Perinban/WebScrapJobs`, and `Perinban/job-data-processing`. The scraper archives the combined feed in Google Drive. The data-processing repository downloads that feed, filters invalid records, deduplicates source URLs, enforces a minimum-job safety threshold, and sends bounded gzip batches to TalentBliss. Oracle records each completed batch, and missing imported jobs are deleted only after an explicit finalize request confirms that every expected batch arrived. Imported companies with no remaining jobs are deleted in the same transaction.
 
 ## Release behavior
 
