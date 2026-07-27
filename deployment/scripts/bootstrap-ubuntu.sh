@@ -57,16 +57,13 @@ fi
 
 install -d -o talentbliss -g talentbliss -m 0750 \
   /opt/talentbliss/releases \
-  /var/lib/talentbliss/uploads \
-  /var/backups/talentbliss
+  /var/lib/talentbliss/uploads
 install -d -o root -g talentbliss -m 0750 /etc/talentbliss
 
 install -m 0644 "$repo_root/deployment/systemd/talentbliss-api.service" /etc/systemd/system/
-install -m 0644 "$repo_root/deployment/systemd/talentbliss-backup.service" /etc/systemd/system/
-install -m 0644 "$repo_root/deployment/systemd/talentbliss-backup.timer" /etc/systemd/system/
 chmod 0755 "$repo_root/deployment/scripts/"*.sh
 systemctl daemon-reload
-systemctl enable talentbliss-api.service talentbliss-backup.timer
+systemctl enable talentbliss-api.service
 
 sudo -u postgres psql -v ON_ERROR_STOP=1 <<'SQL'
 ALTER SYSTEM SET listen_addresses = 'localhost';
