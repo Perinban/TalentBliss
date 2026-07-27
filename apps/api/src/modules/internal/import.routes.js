@@ -149,6 +149,22 @@ async function upsertJobs(client, source, jobs) {
   return counts.rows[0];
 }
 
+async function deleteMissingImportedJobs(client, source, startedAt) {
+  const deletedJobs = await client.query(
+    "DELETE FROM jobs WHERE source = $1 AND last_seen_at < $2 RETURNING company_id",
+    [source, startedAt],
+  );
+  const deletedCompanies = await client.query(
+    "DELETE FROM companies c WHERE c.source = $1 " +
+      "AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.company_id = c.id)",
+    [source],
+  );
+  return {
+    deletedJobCount: deletedJobs.rowCount,
+    deletedCompanyCount: deletedCompanies.rowCount,
+  };
+}
+
 async function findExistingRun(pool, input, checksum) {
   const result = await pool.query(
     "SELECT id, status, inserted_count, updated_count, discovered_count " +
@@ -233,12 +249,9 @@ export function createInternalRouter({ pool, config }) {
         const inserted = counts.inserted_count;
         const updated = counts.updated_count;
 
+        let deletionCounts = { deletedJobCount: 0, deletedCompanyCount: 0 };
         if (input.complete) {
-          await client.query(
-            "UPDATE jobs SET is_active = false, is_open = false, closed_at = COALESCE(closed_at, now()) " +
-              "WHERE source = $1 AND is_active = true AND last_seen_at < $2",
-            [input.source, run.started_at],
-          );
+          deletionCounts = await deleteMissingImportedJobs(client, input.source, run.started_at);
         }
 
         await client.query(
@@ -249,6 +262,8 @@ export function createInternalRouter({ pool, config }) {
         await client.query("COMMIT");
         response.status(201).json({
           idempotent: false,
+          deleted_count: deletionCounts.deletedJobCount,
+          deleted_company_count: deletionCounts.deletedCompanyCount,
           run: {
             id: run.id,
             discovered_count: input.jobs.length,
@@ -389,11 +404,7 @@ export function createInternalRouter({ pool, config }) {
           throw new HttpError(409, "Not all expected batches have completed", "pipeline_batches_incomplete");
         }
 
-        const closed = await client.query(
-          "UPDATE jobs SET is_active = false, is_open = false, closed_at = COALESCE(closed_at, now()) " +
-            "WHERE source = $1 AND is_active = true AND last_seen_at < $2",
-          [input.source, run.started_at],
-        );
+        const deletionCounts = await deleteMissingImportedJobs(client, input.source, run.started_at);
         const completed = await client.query(
           "UPDATE pipeline_runs SET status = 'completed', completed_at = now(), error_message = NULL " +
             "WHERE id = $1 RETURNING id, discovered_count, inserted_count, updated_count",
@@ -402,7 +413,8 @@ export function createInternalRouter({ pool, config }) {
         await client.query("COMMIT");
         response.status(201).json({
           idempotent: false,
-          closed_count: closed.rowCount,
+          deleted_count: deletionCounts.deletedJobCount,
+          deleted_company_count: deletionCounts.deletedCompanyCount,
           run: completed.rows[0],
         });
       } catch (error) {

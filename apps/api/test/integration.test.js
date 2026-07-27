@@ -183,6 +183,8 @@ test("complete portal and pipeline flow", async () => {
     .send(importedFeed)
     .expect(201);
   assert.equal(firstImport.body.idempotent, false);
+  assert.equal(firstImport.body.deleted_count, 0);
+  assert.equal(firstImport.body.deleted_company_count, 0);
   assert.equal(firstImport.body.run.inserted_count, 1);
 
   const repeatedImport = await request(app)
@@ -241,11 +243,13 @@ test("complete portal and pipeline flow", async () => {
 
   const batchJobA = {
     ...importedFeed.jobs[0],
+    Company_Name: "Batched Company A",
     Job_URL: "https://join.com/companies/batched/jobs/a",
     Job_Title: "Batched Engineer A",
   };
   const batchJobB = {
     ...importedFeed.jobs[0],
+    Company_Name: "Batched Company B",
     Job_URL: "https://join.com/companies/batched/jobs/b",
     Job_Title: "Batched Engineer B",
   };
@@ -317,16 +321,19 @@ test("complete portal and pipeline flow", async () => {
     .set("authorization", "Bearer " + importToken)
     .send({ source: "join-batch", runId: "batch-1002", runAttempt: "1", batchCount: 1 })
     .expect(201);
-  assert.equal(secondFinalize.body.closed_count, 1);
+  assert.equal(secondFinalize.body.deleted_count, 1);
+  assert.equal(secondFinalize.body.deleted_company_count, 1);
 
   const batchJobs = await pool.query(
     "SELECT source_url, title, is_active FROM jobs WHERE source = $1 ORDER BY source_url",
     ["join-batch"],
   );
-  assert.equal(batchJobs.rowCount, 2);
+  assert.equal(batchJobs.rowCount, 1);
   assert.equal(batchJobs.rows[0].title, "Batched Engineer A Updated");
   assert.equal(batchJobs.rows[0].is_active, true);
-  assert.equal(batchJobs.rows[1].is_active, false);
+
+  const deletedCompany = await pool.query("SELECT id FROM companies WHERE slug = $1", ["batched-company-b"]);
+  assert.equal(deletedCompany.rowCount, 0);
 
   await candidate
     .post("/api/auth/logout")
