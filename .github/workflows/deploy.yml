@@ -78,7 +78,17 @@ jobs:
       - name: Create release archive
         shell: bash
         run: |
-          tar -czf "talentbliss-${{ steps.release.outputs.release_id }}.tar.gz" \
+          archive="talentbliss-${{ steps.release.outputs.release_id }}.tar.gz"
+          tar \
+            --exclude='*/node_modules' \
+            --exclude='*/node_modules/*' \
+            --exclude='*/var/uploads' \
+            --exclude='*/var/uploads/*' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='*/.env' \
+            --exclude='*/.env.*' \
+            -czf "$archive" \
             LICENSE \
             package.json \
             package-lock.json \
@@ -87,6 +97,9 @@ jobs:
             apps/web/dist \
             database \
             deployment
+          if tar -tzf "$archive" | grep -E '(^|/)node_modules(/|$)|(^|/)\.env($|\.)|(^|/)var/uploads(/|$)'; then
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
