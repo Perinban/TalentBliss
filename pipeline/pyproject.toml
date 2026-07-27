@@ -9,7 +9,7 @@ description = "JOIN job ingestion pipeline for TalentBliss"
 license = "MIT"
 requires-python = ">=3.11"
 dependencies = [
-  "beautifulsoup4>=4.12,<5",
+  "beautifulsoup4>=4.15.0,<5",
   "requests>=2.32,<3",
 ]
 
